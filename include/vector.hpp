@@ -5,7 +5,7 @@
 
 using std::sqrt;
 
-// Represents the direction of the snake
+// Represents a three-dimensional vector
 class Vector3D {
   public:
   // Constructor to initialize memory

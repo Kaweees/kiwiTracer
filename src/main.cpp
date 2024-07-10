@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "../include/color.hpp"
+#include "../include/ray.hpp"
 #include "../include/vector.hpp"
 #include "raymath.h"
 #include "rlgl.h"
