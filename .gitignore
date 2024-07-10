@@ -64,3 +64,4 @@ CMakeSettings.json
 
 # Build files
 graphics
+*.ppm
