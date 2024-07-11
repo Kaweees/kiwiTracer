@@ -10,10 +10,13 @@
 #include "raymath.h"
 #include "rlgl.h"
 
+// Helper function to return the color for a given ray
+ColorRGB ray_color(const Ray3D& r) { return ColorRGB(0, 0, 0); }
+
 //------------------------------------------------------------------------------------
 // Program main entry point
 //------------------------------------------------------------------------------------
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   int image_width = 256;
   int image_height = 256;
 
