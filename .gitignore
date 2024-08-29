@@ -63,5 +63,5 @@ CPackSourceConfig.cmake
 CMakeSettings.json
 
 # Build files
-graphics
+target/
 *.ppm

@@ -27,7 +27,7 @@ To get a local copy of the project up and running on your machine, follow these 
    ```
 2. Build the project and generate a PPM file
    ```sh
-   clear && cmake CMakeLists.txt && make && ./graphics > ./images/graphics.ppm
+   clear && cmake CMakeLists.txt && make && ./target/release/graphics > ./images/graphics.ppm
    ```
 3. Convert the generated PPM file to a PNG file
    ```sh
