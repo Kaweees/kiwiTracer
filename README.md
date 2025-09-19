@@ -87,8 +87,7 @@ To get a local copy of the project up and running on your machine, follow these 
 4. Run the project and generate a PPM file
 
    ```sh
-   just run demo ./assets/img/graphics.png 200 200
-   just run <package_name> > ./images/graphics.ppm
+   just run ./assets/img/demo.png 200 200 2 2 50 60 150 170
    ```
 
 5. Convert the generated PPM file to a PNG file
