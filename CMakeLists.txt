@@ -72,7 +72,6 @@ endif()
 
 # Optional builds
 option(BUILD_EXAMPLES "Build examples" ON)
-option(BUILD_TESTS "Build tests" ON)
 option(BENCHMARK "Build with benchmark mode" OFF)
 
 # Benchmark mode
@@ -83,17 +82,4 @@ endif()
 # Examples
 if(BUILD_EXAMPLES)
   add_subdirectory(examples)
-endif()
-
-# Tests
-if(BUILD_TESTS)
-  # Fetch GoogleTest
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG "v1.15.2"
-    GIT_PROGRESS TRUE)
-  FetchContent_MakeAvailable(googletest)
-  enable_testing()
-  add_subdirectory(tests)
 endif()

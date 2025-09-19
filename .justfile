@@ -26,13 +26,13 @@ build *build_type='Release':
   @cd build && cmake --build . -j{{CORES}}
 
 # Run a package
-run *package='hello':
-  @./target/release/{{package}}
+run *args='':
+  @./target/release/demo {{args}}
 
 # Run code quality tools
 test:
   @echo "Running tests..."
-  @./target/release/kiwicpp_tests
+  @./target/release/kiwitracer_tests
 
 # Remove build artifacts and non-essential files
 clean:
