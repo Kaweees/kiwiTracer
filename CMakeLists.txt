@@ -1,35 +1,99 @@
-cmake_minimum_required(VERSION 3.0)
-project(graphics CXX)
-set(CMAKE_CXX_STANDARD 14) # Use C++14 standard for more features
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror") # Set the compiler flags to include all warnings and treat them as errors
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR) # Set the minimum required
+                                                 # version of CMake
 
-# Adding Raylib
+project(
+  kiwiTracer
+  VERSION 1.0.0
+  LANGUAGES CXX)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math")
+
+# Library target
+add_library(${PROJECT_NAME} INTERFACE)
+
+target_include_directories(
+  ${PROJECT_NAME}
+  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>)
+
+include(CheckLanguage)
 include(FetchContent)
-set(FETCHCONTENT_QUIET FALSE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
-set(BUILD_GAMES    OFF CACHE BOOL "" FORCE) # don't build the supplied example games
 
-FetchContent_Declare(
-  raylib
-  GIT_REPOSITORY "https://github.com/raysan5/raylib.git"
-  GIT_TAG "master"
-  GIT_PROGRESS TRUE
-)
+# Metal Support (macOS/iOS)
+if(APPLE)
+  find_library(METAL_FRAMEWORK Metal)
+  find_library(METALKIT_FRAMEWORK MetalKit)
+  find_library(FOUNDATION_FRAMEWORK Foundation)
 
-FetchContent_MakeAvailable(raylib)
+  if(METAL_FRAMEWORK AND METALKIT_FRAMEWORK)
+    message(STATUS "Apple Metal found. Building with Metal support")
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+    # Fetch Metal-cpp
+    FetchContent_Declare(
+      metal-cpp
+      GIT_REPOSITORY https://github.com/rizajin/metal-cpp.git
+      GIT_TAG "main"
+      GIT_PROGRESS TRUE)
+    FetchContent_MakeAvailable(metal-cpp)
+    target_link_libraries(
+      ${PROJECT_NAME} INTERFACE "-framework Metal" "-framework Foundation"
+                                "-framework QuartzCore" "-framework MetalKit")
+    add_compile_definitions("__METAL__")
+  else()
+    message(STATUS "Apple Metal not found. Building without Metal support")
+  endif()
+else()
+  if(WIN32)
+    # Forcing MSVC to use utf-8 encoding
+    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+  endif(WIN32)
 
-# Adding our source files
-file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.c" "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp" "${CMAKE_CURRENT_LIST_DIR}/src/*.cc" "${CMAKE_CURRENT_LIST_DIR}/src/*.cxx") # Define PROJECT_SOURCES as a list of all source files
-file(GLOB_RECURSE PROJECT_INCLUDE CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/include/*.h" "${CMAKE_CURRENT_LIST_DIR}/include/*.hpp" "${CMAKE_CURRENT_LIST_DIR}/include/*.hh" "${CMAKE_CURRENT_LIST_DIR}/include/*.hxx") # Define PROJECT_INCLUDE to be the path to the include directory of the project
+  check_language(CUDA)
+  if(CMAKE_CUDA_COMPILER)
+    message(STATUS "CUDA found. Building with CUDA support")
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 20)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set(CMAKE_CUDA_ARCHITECTURES native)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
+    target_include_directories(
+      ${PROJECT_NAME} INTERFACE ${CMAKE_CUDA_IMPLICIT_INCLUDE_DIRECTORIES})
+    add_compile_definitions("__CUDA__")
+  else()
+    message(STATUS "CUDA not found. Building without CUDA support")
+  endif()
+endif()
 
-# Declaring our executable
-add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
-target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+# Optional builds
+option(BUILD_EXAMPLES "Build examples" ON)
+option(BUILD_TESTS "Build tests" ON)
+option(BENCHMARK "Build with benchmark mode" OFF)
 
-# Setting our output directory
-set_target_properties(${PROJECT_NAME} PROPERTIES 
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/target/release/"
-  OUTPUT_NAME ${PROJECT_NAME}
-)
+# Benchmark mode
+if(BENCHMARK)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE BENCHMARK_MODE)
+endif()
+
+# Examples
+if(BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
+
+# Tests
+if(BUILD_TESTS)
+  # Fetch GoogleTest
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG "v1.15.2"
+    GIT_PROGRESS TRUE)
+  FetchContent_MakeAvailable(googletest)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
