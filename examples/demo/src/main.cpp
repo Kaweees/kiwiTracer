@@ -9,46 +9,6 @@
 
 namespace fs = std::filesystem;
 
-// Data structure to represent a 2D point
-struct Point2D {
-    int x, y;
-
-    Point2D(int x = 0, int y = 0)
-      : x(x),
-        y(y) {}
-};
-
-// Data structure to represent a triangle
-struct Triangle {
-    Point2D v1, v2, v3;
-
-    Triangle(Point2D v1, Point2D v2, Point2D v3)
-      : v1(v1),
-        v2(v2),
-        v3(v3) {}
-};
-
-// Data structure to represent a bounding box
-struct BoundingBox {
-    int xmin, xmax, ymin, ymax;
-
-    BoundingBox(int xmin, int xmax, int ymin, int ymax)
-      : xmin(xmin),
-        xmax(xmax),
-        ymin(ymin),
-        ymax(ymax) {}
-};
-
-// Function to calculate bounding box from triangle vertices
-BoundingBox calculateBoundingBox(const Triangle& triangle) {
-  int xmin = std::min({triangle.v1.x, triangle.v2.x, triangle.v3.x});
-  int xmax = std::max({triangle.v1.x, triangle.v2.x, triangle.v3.x});
-  int ymin = std::min({triangle.v1.y, triangle.v2.y, triangle.v3.y});
-  int ymax = std::max({triangle.v1.y, triangle.v2.y, triangle.v3.y});
-
-  return BoundingBox(xmin, xmax, ymin, ymax);
-}
-
 int main(int argc, char** argv) {
   fs::path filename;
   int width = 0, height = 0;
@@ -71,10 +31,11 @@ int main(int argc, char** argv) {
   }
 
   // Create triangle from input vertices
-  Triangle triangle(Point2D(vax, vay), Point2D(vbx, vby), Point2D(vcx, vcy));
+  kiwitracer::Triangle triangle(kiwitracer::Vector2D(vax, vay), kiwitracer::Vector2D(vbx, vby),
+                                kiwitracer::Vector2D(vcx, vcy));
 
   // Calculate bounding box
-  BoundingBox bbox = calculateBoundingBox(triangle);
+  kiwitracer::BoundingBox bbox = kiwitracer::BoundingBox::calculateBoundingBox(triangle.v1, triangle.v2, triangle.v3);
 
   std::cout << "Filename: " << filename << "\n";
   std::cout << "Width: " << width << ", Height: " << height << "\n";

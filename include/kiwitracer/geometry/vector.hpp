@@ -15,7 +15,7 @@ class Vector2D {
 
     // Destructor to free the memory allocated
     ~Vector2D() = default;
-  private:
+
     // The x-coordinate of the vector
     int x;
     // The y-coordinate of the vector
