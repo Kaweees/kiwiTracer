@@ -4,7 +4,6 @@
 
 alias b := build
 alias r := run
-alias t := test
 alias c := clean
 alias ch := check
 alias f := format
@@ -28,11 +27,6 @@ build *build_type='Release':
 # Run a package
 run *args='':
   @./target/release/demo {{args}}
-
-# Run code quality tools
-test:
-  @echo "Running tests..."
-  @./target/release/kiwitracer_tests
 
 # Remove build artifacts and non-essential files
 clean:

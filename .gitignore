@@ -23,8 +23,6 @@
 !include/**/
 !scripts/
 !scripts/**/
-!tests/
-!tests/**/
 
 !*.md
 !*.svg
