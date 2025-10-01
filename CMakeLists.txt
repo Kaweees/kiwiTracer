@@ -17,6 +17,7 @@ add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(
   ${PROJECT_NAME}
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
             $<INSTALL_INTERFACE:include>)
 
 include(CheckLanguage)
@@ -69,6 +70,14 @@ else()
     message(STATUS "CUDA not found. Building without CUDA support")
   endif()
 endif()
+
+# Lyra
+FetchContent_Declare(
+  tinyobjloader
+  GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+  GIT_TAG "v0.9.25"
+  GIT_PROGRESS TRUE)
+FetchContent_MakeAvailable(tinyobjloader)
 
 # Optional builds
 option(BUILD_EXAMPLES "Build examples" ON)

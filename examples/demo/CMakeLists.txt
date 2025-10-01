@@ -5,7 +5,8 @@ file(GLOB_RECURSE PROJECT_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_executable(${EXECUTABLE_NAME} ${PROJECT_SRCS})
 target_include_directories(${EXECUTABLE_NAME} PUBLIC ${PROJECT_INCLUDES})
-target_link_libraries(${EXECUTABLE_NAME} PRIVATE ${PROJECT_NAME} lyra)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ${tinyobjloader_SOURCE_DIR})
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE ${PROJECT_NAME} lyra tinyobjloader)
 
 # Setting our output directory
 set_target_properties(
