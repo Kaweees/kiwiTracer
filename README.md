@@ -88,7 +88,7 @@ To get a local copy of the project up and running on your machine, follow these 
 
    ```sh
    just run triangle ./assets/img/demo.png 400 300 10 30 350 200 100 290
-   just run demo ./resources/teapot.obj ./assets/img/demo.png
+   just run demo ./resources/teapot.obj ./assets/img/demo.png 600 600 1
    ```
 
 5. Convert the generated PPM file to a PNG file

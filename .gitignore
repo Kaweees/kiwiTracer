@@ -23,6 +23,8 @@
 !include/**/
 !scripts/
 !scripts/**/
+!resources/
+!resources/**/
 
 !*.md
 !*.svg
@@ -40,3 +42,4 @@
 !*.hpp
 !*.cu
 !*.cuh
+!*.obj

@@ -17,7 +17,6 @@ add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(
   ${PROJECT_NAME}
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
             $<INSTALL_INTERFACE:include>)
 
 include(CheckLanguage)
@@ -78,6 +77,17 @@ FetchContent_Declare(
   GIT_TAG "v0.9.25"
   GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(tinyobjloader)
+
+# STB (Single-file public domain libraries)
+FetchContent_Declare(
+  stb
+  GIT_REPOSITORY https://github.com/nothings/stb.git
+  GIT_TAG "master"
+  GIT_PROGRESS TRUE)
+FetchContent_MakeAvailable(stb)
+
+# Add STB include directory to the library
+target_include_directories(${PROJECT_NAME} INTERFACE ${stb_SOURCE_DIR})
 
 # Optional builds
 option(BUILD_EXAMPLES "Build examples" ON)

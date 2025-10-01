@@ -7,11 +7,8 @@
 #include <sys/types.h>
 #include <iostream>
 #include <string>
-#include <vector>
 #include <memory>
 #include <assert.h>
-#include "tiny_obj_loader.h"
-#include "Image.h"
 
 namespace fs = std::filesystem;
 
@@ -71,13 +68,6 @@ int main(int argc, char** argv) {
         r = u * 255;
         g = v * 255;
         b = w * 255;
-      }
-
-      if (x == bbox.xmin || x == bbox.xmax || y == bbox.ymin || y == bbox.ymax) {
-        // Use a different color for the bounding box (yellow)
-        r = 255;
-        g = 255;
-        b = 0;
       }
 
       image->setPixel(x, y, r, g, b);
