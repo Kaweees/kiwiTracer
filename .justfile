@@ -25,8 +25,8 @@ build *build_type='Release':
   @cd build && cmake --build . -j{{CORES}}
 
 # Run a package
-run *args='':
-  @./target/release/demo {{args}}
+run package='demo' *args='':
+  @./target/release/{{package}} {{args}}
 
 # Remove build artifacts and non-essential files
 clean:
