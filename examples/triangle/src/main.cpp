@@ -35,7 +35,8 @@ int main(int argc, char** argv) {
 
   // Create triangle from input vertices
   kiwitracer::Triangle triangle(kiwitracer::Vertex(vax, vay, 0, 255, 0, 0), kiwitracer::Vertex(vbx, vby, 0, 0, 255, 0),
-                                kiwitracer::Vertex(vcx, vcy, 0, 0, 0, 255), g_width, g_height);
+                                kiwitracer::Vertex(vcx, vcy, 0, 0, 0, 255));
+  triangle.computeBoundingBox(g_width, g_height);
 
   std::cout << "Filename: " << filename << "\n";
   std::cout << "Width: " << g_width << ", Height: " << g_height << "\n";

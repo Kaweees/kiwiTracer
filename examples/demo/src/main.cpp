@@ -2,14 +2,14 @@
 #include <kiwitracer/kiwitracer.hpp>
 #include <memory>
 #include <lyra/lyra.hpp>
-#include <iostream>
 #include <filesystem>
 #include <sys/types.h>
-#include <iostream>
 #include <string>
 #include <vector>
-#include <memory>
 #include <assert.h>
+#include <limits>
+#include <algorithm>
+#include <cmath>
 #include "tiny_obj_loader.h"
 
 namespace fs = std::filesystem;
@@ -74,6 +74,101 @@ void resize_obj(std::vector<tinyobj::shape_t>& shapes) {
   }
 }
 
+// Rasterize a single triangle
+void rasterizeTriangle(kiwitracer::Triangle& tri, std::shared_ptr<kiwitracer::Image> image,
+                       std::vector<std::vector<float>>& zBuffer) {
+  // Calculate bounding box for this triangle
+  tri.computeBoundingBox(image->getWidth(), image->getHeight());
+
+  // Clamp bounding box to image bounds
+  int xmin = std::max(0, (int)std::floor(tri.xmin));
+  int xmax = std::min(image->getWidth() - 1, (int)std::ceil(tri.xmax));
+  int ymin = std::max(0, (int)std::floor(tri.ymin));
+  int ymax = std::min(image->getHeight() - 1, (int)std::ceil(tri.ymax));
+
+  // Rasterize the triangle
+  for (int y = ymin; y <= ymax; y++) {
+    for (int x = xmin; x <= xmax; x++) {
+      // compute the barycentric coordinates
+      float u = 0, v = 0, w = 0;
+
+      // Check if point is inside triangle
+      if (tri.barycentric(kiwitracer::Vertex(x + 0.5f, y + 0.5f, 0), u, v, w)) {
+        printf("Barycentric coordinates: (%f, %f, %f)\n", u, v, w);
+        // Interpolate vertex attributes
+        kiwitracer::Vertex interpolated = tri.interpolateVertex(tri.v0, tri.v1, tri.v2, u, v, w);
+        printf("Interpolated vertex: (%f, %f, %f, %f, %f, %f, %f)\n", interpolated.x, interpolated.y, interpolated.z,
+               interpolated.r, interpolated.g, interpolated.b, interpolated.depth);
+
+        // Z-buffer test: only draw if this pixel is closer than what's in the buffer
+        if (interpolated.depth < zBuffer[y][x]) {
+          // Update the z-buffer
+          zBuffer[y][x] = interpolated.depth;
+
+          // Scale colors from [0, 1] to [0, 255] and convert to unsigned char
+          unsigned char r = static_cast<unsigned char>(std::clamp(interpolated.r * 255.0f, 0.0f, 255.0f));
+          unsigned char g = static_cast<unsigned char>(std::clamp(interpolated.g * 255.0f, 0.0f, 255.0f));
+          unsigned char b = static_cast<unsigned char>(std::clamp(interpolated.b * 255.0f, 0.0f, 255.0f));
+          printf("Pixel: (%d, %d, %d)\n", r, g, b);
+
+          image->setPixel(x, y, r, g, b);
+        }
+      }
+    }
+  }
+}
+
+// Color mode 1: Depth-based coloring (closer = brighter)
+void setDepthColors(std::vector<kiwitracer::Vertex>& vertices) {
+  // Find min and max z values for normalization
+  float minZ = vertices[0].z;
+  float maxZ = vertices[0].z;
+
+  for (const auto& v : vertices) {
+    minZ = std::min(minZ, v.z);
+    maxZ = std::max(maxZ, v.z);
+  }
+
+  // Normalize z values and set colors
+  for (auto& v : vertices) {
+    float normalizedZ = (v.z - minZ) / (maxZ - minZ);
+    v.r = normalizedZ; // Red component based on depth
+    v.g = 0.0f;
+    v.b = 0.0f;
+  }
+}
+
+// Color mode 2: Distance-based banded coloring
+void setDistanceColors(std::vector<kiwitracer::Vertex>& vertices, int width, int height) {
+  // Reference point in window space (center of image)
+  float refX = width / 2.0f;
+  float refY = height / 2.0f;
+
+  float minDist = 1e10f;
+  float maxDist = 0.0f;
+
+  // Find min and max distances
+  for (const auto& v : vertices) {
+    float dist = std::sqrt((v.x - refX) * (v.x - refX) + (v.y - refY) * (v.y - refY));
+    minDist = std::min(minDist, dist);
+    maxDist = std::max(maxDist, dist);
+  }
+
+  // Set banded colors based on distance
+  for (auto& v : vertices) {
+    float dist = std::sqrt((v.x - refX) * (v.x - refX) + (v.y - refY) * (v.y - refY));
+    float normalizedDist = (dist - minDist) / (maxDist - minDist);
+
+    // Create banded effect
+    float banded = std::floor(normalizedDist * 8.0f) / 8.0f;
+
+    // Blend between blue and yellow
+    v.r = static_cast<unsigned char>(banded);
+    v.g = static_cast<unsigned char>(banded);
+    v.b = static_cast<unsigned char>(1.0f - banded);
+  }
+}
+
 int main(int argc, char** argv) {
   fs::path meshfile, imagefile;
   int g_width = 100, g_height = 100, colorMode = 1;
@@ -98,6 +193,9 @@ int main(int argc, char** argv) {
 
   // Create the image
   auto image = std::make_shared<kiwitracer::Image>(g_width, g_height);
+
+  // Create z-buffer (initialized to very large values - far away from camera)
+  std::vector<std::vector<float>> zbuffer(g_height, std::vector<float>(g_width, std::numeric_limits<float>::max()));
 
   // triangle buffer
   std::vector<unsigned int> triBuf;
@@ -128,70 +226,32 @@ int main(int argc, char** argv) {
   std::cout << "Number of vertices: " << posBuf.size() / 3 << std::endl;
   std::cout << "Number of triangles: " << triBuf.size() / 3 << std::endl;
 
-  // Process each triangle
+  // Convert vertices to window coordinates
+  std::vector<kiwitracer::Vertex> vertices;
+  for (size_t i = 0; i < posBuf.size(); i += 3) {
+    kiwitracer::Vertex world(posBuf[i], posBuf[i + 1], posBuf[i + 2], 0, 0, 0);
+    vertices.push_back(world.worldToWindow(g_width, g_height));
+  }
+
+  // Apply color mode
+  if (colorMode == 1) {
+    setDepthColors(vertices);
+  } else if (colorMode == 2) {
+    setDistanceColors(vertices, g_width, g_height);
+  }
+
+  // Rasterize each triangle
   for (size_t i = 0; i < triBuf.size(); i += 3) {
     // Get the three vertex indices for this triangle
     unsigned int idx0 = triBuf[i];
     unsigned int idx1 = triBuf[i + 1];
     unsigned int idx2 = triBuf[i + 2];
 
-    std::cout << "Triangle " << i / 3 << ": indices " << idx0 << ", " << idx1 << ", " << idx2 << std::endl;
-
-    // Get vertex positions and convert to screen coordinates
-    // Map from [-1, 1] to [0, image_size-1]
-    // Don't modify the original posBuf, use temporary variables
-    float vax = (posBuf[3 * idx0] + 1.0f) * 0.5f * (g_width - 1);
-    float vay = (posBuf[3 * idx0 + 1] + 1.0f) * 0.5f * (g_height - 1);
-    float vbx = (posBuf[3 * idx1] + 1.0f) * 0.5f * (g_width - 1);
-    float vby = (posBuf[3 * idx1 + 1] + 1.0f) * 0.5f * (g_height - 1);
-    float vcx = (posBuf[3 * idx2] + 1.0f) * 0.5f * (g_width - 1);
-    float vcy = (posBuf[3 * idx2 + 1] + 1.0f) * 0.5f * (g_height - 1);
-
-    // Calculate bounding box for this triangle
-    kiwitracer::BoundingBox bbox = kiwitracer::BoundingBox::calculateBoundingBox(vax, vay, vbx, vby, vcx, vcy);
-
-    // Clamp bounding box to image bounds
-    int xmin = std::max(0, (int)std::floor(bbox.xmin));
-    int xmax = std::min(g_width - 1, (int)std::ceil(bbox.xmax));
-    int ymin = std::max(0, (int)std::floor(bbox.ymin));
-    int ymax = std::min(g_height - 1, (int)std::ceil(bbox.ymax));
-
-    // Draw the bounding box
-    for (int y = ymin; y <= ymax; ++y) {
-      for (int x = xmin; x <= xmax; ++x) {
-        unsigned char r = 0;
-        unsigned char g = 0;
-        unsigned char b = 0;
-        // compute the barycentric coordinates
-        float u = ((vby - vcy) * (x - vcx) + (vcx - vbx) * (y - vcy)) /
-                  ((vby - vcy) * (vax - vcx) + (vcx - vbx) * (vay - vcy));
-        float v = ((vbx - vax) * (y - vby) + (vay - vby) * (x - vbx)) /
-                  ((vbx - vax) * (vcy - vby) + (vay - vby) * (vcx - vbx));
-        float w = 1.0f - u - v;
-        // if the point is inside the triangle, use the color of the triangle
-        if (u >= 0 && u <= 1 && v >= 0 && v <= 1 && w >= 0 && w <= 1) {
-          r = u * 255;
-          g = v * 255;
-          b = w * 255;
-        }
-
-        image->setPixel(x, y, r, g, b);
-      }
-    }
-
-    // Draw the three vertices as different colored pixels
-    if (vax >= 0 && vax < g_width && vay >= 0 && vay < g_height) {
-      image->setPixel((int)vax, (int)vay, 255, 0, 0); // Red for vertex A
-    }
-    if (vbx >= 0 && vbx < g_width && vby >= 0 && vby < g_height) {
-      image->setPixel((int)vbx, (int)vby, 0, 255, 0); // Green for vertex B
-    }
-    if (vcx >= 0 && vcx < g_width && vcy >= 0 && vcy < g_height) {
-      image->setPixel((int)vcx, (int)vcy, 0, 0, 255); // Blue for vertex C
-    }
+    kiwitracer::Triangle tri(vertices[idx0], vertices[idx1], vertices[idx2]);
+    rasterizeTriangle(tri, image, zbuffer);
   }
 
-  // Write image to file
+  // write out the image
   image->writeToFile(imagefile);
 
   return 0;

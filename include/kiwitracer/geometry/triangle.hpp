@@ -9,12 +9,10 @@ namespace kiwitracer {
 
 struct Triangle {
     // Constructor to initialize memory
-    Triangle(const Vertex& v0, const Vertex& v1, const Vertex& v2, int g_width, int g_height)
+    Triangle(const Vertex& v0, const Vertex& v1, const Vertex& v2)
       : v0(v0),
         v1(v1),
-        v2(v2) {
-      computeBoundingBox(g_width, g_height);
-    }
+        v2(v2) {}
 
     // Destructor to free the memory allocated
     ~Triangle() = default;
@@ -45,7 +43,16 @@ struct Triangle {
       w = (d00 * d21 - d01 * d20) / denom;
       u = 1.0f - v - w;
 
-      return (u >= 0 && v >= 0 && w >= 0);
+      return (0 <= u && u <= 1 && 0 <= v && v <= 1 && 0 <= w && w <= 1);
+    }
+
+    // Interpolate vertex attributes using barycentric coordinates
+    // Interpolate colors using barycentric coordinates
+    Vertex interpolateVertex(const Vertex& a, const Vertex& b, const Vertex& c, float alpha, float beta, float gamma) {
+      return Vertex(alpha * a.x + beta * b.x + gamma * c.x, alpha * a.y + beta * b.y + gamma * c.y,
+                    alpha * a.z + beta * b.z + gamma * c.z, alpha * a.r + beta * b.r + gamma * c.r,
+                    alpha * a.g + beta * b.g + gamma * c.g, alpha * a.b + beta * b.b + gamma * c.b,
+                    alpha * a.depth + beta * b.depth + gamma * c.depth);
     }
 
     // The vertices of the triangle
