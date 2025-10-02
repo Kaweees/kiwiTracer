@@ -33,7 +33,7 @@ struct Triangle {
     }
 
     // Compute barycentric coordinates (u, v, w) for point p with respect to triangle
-    void barycentric(Vertex p, float& u, float& v, float& w) {
+    bool barycentric(Vertex p, float& u, float& v, float& w) {
       Vertex v0 = v1 - this->v0, v1 = v2 - this->v0, v2 = p - this->v0;
       float d00 = v0.dot(v0);
       float d01 = v0.dot(v1);
@@ -44,6 +44,8 @@ struct Triangle {
       v = (d11 * d20 - d01 * d21) / denom;
       w = (d00 * d21 - d01 * d20) / denom;
       u = 1.0f - v - w;
+
+      return (u >= 0 && v >= 0 && w >= 0);
     }
 
     // The vertices of the triangle

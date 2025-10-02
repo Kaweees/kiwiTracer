@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
   std::cout << "Bounding Box: (" << triangle.xmin << ", " << triangle.ymin << ") to (" << triangle.xmax << ", "
             << triangle.ymax << ")\n";
 
-  // Create the image. We're using a `shared_ptr`, a C++11 feature.
+  // Create the image
   auto image = std::make_shared<kiwitracer::Image>(g_width, g_height);
 
   // Draw the bounding box
@@ -55,16 +55,16 @@ int main(int argc, char** argv) {
 
       // compute the barycentric coordinates
       float u = 0, v = 0, w = 0;
-      triangle.barycentric(kiwitracer::Vertex(x, y, 0), u, v, w);
 
       // if the point is inside the triangle, use the color of the triangle
-      if (u >= 0 && u <= 1 && v >= 0 && v <= 1 && w >= 0 && w <= 1) {
+      if (triangle.barycentric(kiwitracer::Vertex(x, y, 0), u, v, w)) {
         r = u * 255;
         g = v * 255;
         b = w * 255;
       }
+
+      // Use a different color for the bounding box (yellow)
       if (x == triangle.xmin || x == triangle.xmax || y == triangle.ymin || y == triangle.ymax) {
-        // Use a different color for the bounding box (yellow)
         r = 255;
         g = 255;
         b = 0;
