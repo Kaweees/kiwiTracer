@@ -31,9 +31,9 @@ run package='demo' *args='':
 # Remove build artifacts and non-essential files
 clean:
   @echo "Cleaning..."
-  @find . -type d -name ".cache" -exec rm -r {} +
-  @find . -type d -name "build" -exec rm -r {} +
-  @find . -type d -name "target" -exec rm -r {} +
+  @find . -type d -name ".cache" -exec rm -rf {} +
+  @find . -type d -name "build" -exec rm -rf {} +
+  @find . -type d -name "target" -exec rm -rf {} +
 
 # Run code quality tools
 check:
