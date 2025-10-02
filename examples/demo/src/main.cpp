@@ -76,12 +76,13 @@ void resize_obj(std::vector<tinyobj::shape_t>& shapes) {
 
 int main(int argc, char** argv) {
   fs::path meshfile, imagefile;
-  int g_width = 100, g_height = 100;
+  int g_width = 100, g_height = 100, colorMode = 1;
 
   auto cli = lyra::cli() | lyra::arg(meshfile, "meshfile").required().help("Mesh file (e.g., foo.obj)") |
              lyra::arg(imagefile, "imagefile").required().help("Image file (e.g., foo.png)") |
              lyra::arg(g_width, "width").help("Image width (e.g., 512)") |
-             lyra::arg(g_height, "height").help("Image height (e.g., 512)");
+             lyra::arg(g_height, "height").help("Image height (e.g., 512)") |
+             lyra::arg(colorMode, "mode").help("Coloring mode: 1 (depth) or 2 (binned distance)");
 
   auto result = cli.parse({argc, argv});
   if (!result) {
@@ -89,9 +90,13 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  std::cout << "Filename: " << imagefile << "\n";
+  // Validate color mode
+  if (colorMode < 1 || colorMode > 2) {
+    std::cerr << "Color mode must be 1 or 2\n";
+    return 1;
+  }
 
-  // Create the image. We're using a `shared_ptr`, a C++11 feature.
+  // Create the image
   auto image = std::make_shared<kiwitracer::Image>(g_width, g_height);
 
   // triangle buffer
@@ -99,7 +104,6 @@ int main(int argc, char** argv) {
   // position buffer
   std::vector<float> posBuf;
   // Some obj files contain material information.
-  // We'll ignore them for this assignment.
   std::vector<tinyobj::shape_t> shapes; // geometry
   std::vector<tinyobj::material_t> objMaterials; // material
   std::string errStr;
@@ -107,14 +111,20 @@ int main(int argc, char** argv) {
   bool rc = tinyobj::LoadObj(shapes, objMaterials, errStr, meshfile.c_str());
   /* error checking on read */
   if (!rc) {
-    std::cerr << errStr << std::endl;
+    std::cerr << "Error loading mesh: " << errStr << std::endl;
     return 1;
-  } else {
-    // keep this code to resize your object to be within -1 -> 1
-    resize_obj(shapes);
-    posBuf = shapes[0].mesh.positions;
-    triBuf = shapes[0].mesh.indices;
   }
+
+  if (shapes.empty() || shapes[0].mesh.positions.empty()) {
+    std::cerr << "Error: Mesh file contains no geometry\n";
+    return 1;
+  }
+
+  // Resize object to be within -1 -> 1
+  resize_obj(shapes);
+  posBuf = shapes[0].mesh.positions;
+  triBuf = shapes[0].mesh.indices;
+
   std::cout << "Number of vertices: " << posBuf.size() / 3 << std::endl;
   std::cout << "Number of triangles: " << triBuf.size() / 3 << std::endl;
 
