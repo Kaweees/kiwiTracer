@@ -34,42 +34,43 @@ int main(int argc, char** argv) {
   }
 
   // Create triangle from input vertices
-  kiwitracer::Triangle triangle(kiwitracer::Vector2D(vax, vay), kiwitracer::Vector2D(vbx, vby),
-                                kiwitracer::Vector2D(vcx, vcy));
-
-  // Calculate bounding box
-  kiwitracer::BoundingBox bbox = kiwitracer::BoundingBox::calculateBoundingBox(triangle.v1, triangle.v2, triangle.v3);
+  kiwitracer::Triangle triangle(kiwitracer::Vertex(vax, vay, 0, 255, 0, 0), kiwitracer::Vertex(vbx, vby, 0, 0, 255, 0),
+                                kiwitracer::Vertex(vcx, vcy, 0, 0, 0, 255), g_width, g_height);
 
   std::cout << "Filename: " << filename << "\n";
   std::cout << "Width: " << g_width << ", Height: " << g_height << "\n";
   std::cout << "Vertex A: (" << vax << ", " << vay << ")\n";
   std::cout << "Vertex B: (" << vbx << ", " << vby << ")\n";
   std::cout << "Vertex C: (" << vcx << ", " << vcy << ")\n";
-  std::cout << "Bounding Box: (" << bbox.xmin << ", " << bbox.ymin << ") to (" << bbox.xmax << ", " << bbox.ymax
-            << ")\n";
+  std::cout << "Bounding Box: (" << triangle.xmin << ", " << triangle.ymin << ") to (" << triangle.xmax << ", "
+            << triangle.ymax << ")\n";
 
   // Create the image. We're using a `shared_ptr`, a C++11 feature.
   auto image = std::make_shared<kiwitracer::Image>(g_width, g_height);
 
   // Draw the bounding box
-  for (float y = bbox.ymin; y <= bbox.ymax; ++y) {
-    for (float x = bbox.xmin; x <= bbox.xmax; ++x) {
-      unsigned char r = 0;
-      unsigned char g = 0;
-      unsigned char b = 0;
+  for (float y = triangle.ymin; y <= triangle.ymax; ++y) {
+    for (float x = triangle.xmin; x <= triangle.xmax; ++x) {
+      unsigned char r = 0, g = 0, b = 0;
+
       // compute the barycentric coordinates
-      float u =
-          ((vby - vcy) * (x - vcx) + (vcx - vbx) * (y - vcy)) / ((vby - vcy) * (vax - vcx) + (vcx - vbx) * (vay - vcy));
-      float v =
-          ((vbx - vax) * (y - vby) + (vay - vby) * (x - vbx)) / ((vbx - vax) * (vcy - vby) + (vay - vby) * (vcx - vbx));
-      float w = 1.0f - u - v;
+      float u = 0, v = 0, w = 0;
+      triangle.barycentric(kiwitracer::Vertex(x, y, 0), u, v, w);
+
       // if the point is inside the triangle, use the color of the triangle
       if (u >= 0 && u <= 1 && v >= 0 && v <= 1 && w >= 0 && w <= 1) {
         r = u * 255;
         g = v * 255;
         b = w * 255;
       }
+      if (x == triangle.xmin || x == triangle.xmax || y == triangle.ymin || y == triangle.ymax) {
+        // Use a different color for the bounding box (yellow)
+        r = 255;
+        g = 255;
+        b = 0;
+      }
 
+      // Set the pixel color
       image->setPixel(x, y, r, g, b);
     }
   }

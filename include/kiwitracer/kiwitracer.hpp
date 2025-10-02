@@ -7,6 +7,5 @@
 // Geometry
 // #include "geometry/face.hpp"
 // #include "geometry/mesh.hpp"
-#include "geometry/boundingbox.hpp"
 #include "geometry/triangle.hpp"
-#include "geometry/vector.hpp"
+#include "geometry/vertex.hpp"
