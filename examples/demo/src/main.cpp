@@ -129,51 +129,56 @@ int main(int argc, char** argv) {
 
     // Get vertex positions and convert to screen coordinates
     // Map from [-1, 1] to [0, image_size-1]
-    int vax = (int)((posBuf[3 * idx0] + 1.0f) * 0.5f * (g_width - 1));
-    int vay = (int)((posBuf[3 * idx0 + 1] + 1.0f) * 0.5f * (g_height - 1));
-    int vbx = (int)((posBuf[3 * idx1] + 1.0f) * 0.5f * (g_width - 1));
-    int vby = (int)((posBuf[3 * idx1 + 1] + 1.0f) * 0.5f * (g_height - 1));
-    int vcx = (int)((posBuf[3 * idx2] + 1.0f) * 0.5f * (g_width - 1));
-    int vcy = (int)((posBuf[3 * idx2 + 1] + 1.0f) * 0.5f * (g_height - 1));
-
-    std::cout << "Vertices: (" << vax << "," << vay << "), (" << vbx << "," << vby << "), (" << vcx << "," << vcy << ")"
-              << std::endl;
+    // Don't modify the original posBuf, use temporary variables
+    float vax = (posBuf[3 * idx0] + 1.0f) * 0.5f * (g_width - 1);
+    float vay = (posBuf[3 * idx0 + 1] + 1.0f) * 0.5f * (g_height - 1);
+    float vbx = (posBuf[3 * idx1] + 1.0f) * 0.5f * (g_width - 1);
+    float vby = (posBuf[3 * idx1 + 1] + 1.0f) * 0.5f * (g_height - 1);
+    float vcx = (posBuf[3 * idx2] + 1.0f) * 0.5f * (g_width - 1);
+    float vcy = (posBuf[3 * idx2 + 1] + 1.0f) * 0.5f * (g_height - 1);
 
     // Calculate bounding box for this triangle
-    int xmin = std::max(0, std::min({vax, vbx, vcx}));
-    int xmax = std::min(g_width - 1, std::max({vax, vbx, vcx}));
-    int ymin = std::max(0, std::min({vay, vby, vcy}));
-    int ymax = std::min(g_height - 1, std::max({vay, vby, vcy}));
+    kiwitracer::BoundingBox bbox = kiwitracer::BoundingBox::calculateBoundingBox(vax, vay, vbx, vby, vcx, vcy);
 
-    // Draw the triangle using barycentric coordinates
+    // Clamp bounding box to image bounds
+    int xmin = std::max(0, (int)std::floor(bbox.xmin));
+    int xmax = std::min(g_width - 1, (int)std::ceil(bbox.xmax));
+    int ymin = std::max(0, (int)std::floor(bbox.ymin));
+    int ymax = std::min(g_height - 1, (int)std::ceil(bbox.ymax));
+
+    // Draw the bounding box
     for (int y = ymin; y <= ymax; ++y) {
       for (int x = xmin; x <= xmax; ++x) {
         unsigned char r = 0;
         unsigned char g = 0;
         unsigned char b = 0;
-
-        // Compute the barycentric coordinates
-        float denom = (float)((vby - vcy) * (vax - vcx) + (vcx - vbx) * (vay - vcy));
-        if (std::abs(denom) < 1e-6f) continue; // Skip degenerate triangles
-
-        float u = ((vby - vcy) * (x - vcx) + (vcx - vbx) * (y - vcy)) / denom;
-        float v = ((vcx - vax) * (y - vcy) + (vax - vcx) * (x - vcx)) / denom;
+        // compute the barycentric coordinates
+        float u = ((vby - vcy) * (x - vcx) + (vcx - vbx) * (y - vcy)) /
+                  ((vby - vcy) * (vax - vcx) + (vcx - vbx) * (vay - vcy));
+        float v = ((vbx - vax) * (y - vby) + (vay - vby) * (x - vbx)) /
+                  ((vbx - vax) * (vcy - vby) + (vay - vby) * (vcx - vbx));
         float w = 1.0f - u - v;
-
-        // If the point is inside the triangle, use the color of the triangle
-        if (u >= 0 && v >= 0 && w >= 0) {
-          r = (unsigned char)(u * 255);
-          g = (unsigned char)(v * 255);
-          b = (unsigned char)(w * 255);
-          image->setPixel(x, y, r, g, b);
+        // if the point is inside the triangle, use the color of the triangle
+        if (u >= 0 && u <= 1 && v >= 0 && v <= 1 && w >= 0 && w <= 1) {
+          r = u * 255;
+          g = v * 255;
+          b = w * 255;
         }
+
+        image->setPixel(x, y, r, g, b);
       }
     }
 
     // Draw the three vertices as different colored pixels
-    image->setPixel(vax, vay, 255, 0, 0); // Red for vertex A
-    image->setPixel(vbx, vby, 0, 255, 0); // Green for vertex B
-    image->setPixel(vcx, vcy, 0, 0, 255); // Blue for vertex C
+    if (vax >= 0 && vax < g_width && vay >= 0 && vay < g_height) {
+      image->setPixel((int)vax, (int)vay, 255, 0, 0); // Red for vertex A
+    }
+    if (vbx >= 0 && vbx < g_width && vby >= 0 && vby < g_height) {
+      image->setPixel((int)vbx, (int)vby, 0, 255, 0); // Green for vertex B
+    }
+    if (vcx >= 0 && vcx < g_width && vcy >= 0 && vcy < g_height) {
+      image->setPixel((int)vcx, (int)vcy, 0, 0, 255); // Blue for vertex C
+    }
   }
 
   // Write image to file
