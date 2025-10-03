@@ -74,6 +74,20 @@ void resize_obj(std::vector<tinyobj::shape_t>& shapes) {
   }
 }
 
+// Color mode 1: Depth-based coloring (closer = brighter)
+void setDepthColors(std::vector<kiwitracer::Vertex>& vertices, float minZ, float maxZ) {
+  float denom = (maxZ - minZ <= 0.0f) ? 1.0f : (maxZ - minZ);
+
+  // Normalize z values and set colors (closer = brighter red)
+  for (auto& v : vertices) {
+    float zNormalized = (v.z - minZ) / denom;
+    float brightness = 1.0f - zNormalized; // invert so closer (smaller z) is brighter
+    v.r = brightness;
+    v.g = 0.0f;
+    v.b = 0.0f;
+  }
+}
+
 // Rasterize a single triangle
 void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitracer::Image> image,
                        std::vector<std::vector<float>>& zBuffer, int colorMode) {
@@ -136,29 +150,6 @@ void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitrace
   }
 }
 
-// Color mode 1: Depth-based coloring (closer = brighter)
-void setDepthColors(std::vector<kiwitracer::Vertex>& vertices) {
-  // Find min and max z values for normalization
-  float minZ = vertices[0].z;
-  float maxZ = vertices[0].z;
-
-  for (const auto& v : vertices) {
-    minZ = std::min(minZ, v.z);
-    maxZ = std::max(maxZ, v.z);
-  }
-
-  float denom = (maxZ - minZ <= 0.0f) ? 1.0f : (maxZ - minZ);
-
-  // Normalize z values and set colors (closer = brighter red)
-  for (auto& v : vertices) {
-    float zNormalized = (v.z - minZ) / denom;
-    float brightness = 1.0f - zNormalized; // invert so closer (smaller z) is brighter
-    v.r = brightness;
-    v.g = 0.0f;
-    v.b = 0.0f;
-  }
-}
-
 int main(int argc, char** argv) {
   fs::path meshfile, imagefile;
   int g_width = 100, g_height = 100, colorMode = 1;
@@ -214,6 +205,10 @@ int main(int argc, char** argv) {
   posBuf = shapes[0].mesh.positions;
   triBuf = shapes[0].mesh.indices;
 
+  // Find min and max z values for normalization
+  float minZ = std::numeric_limits<float>::max();
+  float maxZ = std::numeric_limits<float>::min();
+
   std::cout << "Number of vertices: " << posBuf.size() / 3 << std::endl;
   std::cout << "Number of triangles: " << triBuf.size() / 3 << std::endl;
 
@@ -221,12 +216,15 @@ int main(int argc, char** argv) {
   std::vector<kiwitracer::Vertex> vertices;
   for (size_t i = 0; i < posBuf.size(); i += 3) {
     kiwitracer::Vertex world(posBuf[i], posBuf[i + 1], posBuf[i + 2], 0, 0, 0);
-    vertices.push_back(world.worldToWindow(g_width, g_height));
+    kiwitracer::Vertex window = world.worldToWindow(g_width, g_height);
+    vertices.push_back(window);
+    minZ = std::min(minZ, window.z);
+    maxZ = std::max(maxZ, window.z);
   }
 
   // Apply color mode
   if (colorMode == 1) {
-    setDepthColors(vertices);
+    setDepthColors(vertices, minZ, maxZ);
   } else if (colorMode == 3) {
     // Per-pixel barycentric region coloring; no per-vertex setup needed
   }
