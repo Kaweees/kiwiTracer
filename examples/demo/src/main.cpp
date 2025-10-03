@@ -75,16 +75,16 @@ void resize_obj(std::vector<tinyobj::shape_t>& shapes) {
 }
 
 // Rasterize a single triangle
-void rasterizeTriangle(kiwitracer::Triangle& tri, std::shared_ptr<kiwitracer::Image> image,
+void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitracer::Image> image,
                        std::vector<std::vector<float>>& zBuffer) {
   // Calculate bounding box for this triangle
-  tri.computeBoundingBox(image->getWidth(), image->getHeight());
+  triangle.computeBoundingBox(image->getWidth(), image->getHeight());
 
   // Clamp bounding box to image bounds
-  int xmin = std::max(0, (int)std::floor(tri.xmin));
-  int xmax = std::min(image->getWidth() - 1, (int)std::ceil(tri.xmax));
-  int ymin = std::max(0, (int)std::floor(tri.ymin));
-  int ymax = std::min(image->getHeight() - 1, (int)std::ceil(tri.ymax));
+  int xmin = std::max(0, (int)std::floor(triangle.xmin));
+  int xmax = std::min(image->getWidth() - 1, (int)std::ceil(triangle.xmax));
+  int ymin = std::max(0, (int)std::floor(triangle.ymin));
+  int ymax = std::min(image->getHeight() - 1, (int)std::ceil(triangle.ymax));
 
   // Rasterize the triangle
   for (int y = ymin; y <= ymax; y++) {
@@ -93,10 +93,10 @@ void rasterizeTriangle(kiwitracer::Triangle& tri, std::shared_ptr<kiwitracer::Im
       float u = 0, v = 0, w = 0;
 
       // Check if point is inside triangle
-      if (tri.barycentric(kiwitracer::Vertex(x + 0.5f, y + 0.5f, 0), u, v, w)) {
+      if (triangle.barycentric(kiwitracer::Vertex(x + 0.5f, y + 0.5f, 0), u, v, w)) {
         printf("Barycentric coordinates: (%f, %f, %f)\n", u, v, w);
         // Interpolate vertex attributes
-        kiwitracer::Vertex interpolated = tri.interpolateVertex(tri.v0, tri.v1, tri.v2, u, v, w);
+        kiwitracer::Vertex interpolated = triangle.interpolateVertex(triangle.v0, triangle.v1, triangle.v2, u, v, w);
         printf("Interpolated vertex: (%f, %f, %f, %f, %f, %f, %f)\n", interpolated.x, interpolated.y, interpolated.z,
                interpolated.r, interpolated.g, interpolated.b, interpolated.depth);
 
@@ -105,10 +105,11 @@ void rasterizeTriangle(kiwitracer::Triangle& tri, std::shared_ptr<kiwitracer::Im
           // Update the z-buffer
           zBuffer[y][x] = interpolated.depth;
 
-          // Scale colors from [0, 1] to [0, 255] and convert to unsigned char
-          unsigned char r = static_cast<unsigned char>(std::clamp(interpolated.r * 255.0f, 0.0f, 255.0f));
-          unsigned char g = static_cast<unsigned char>(std::clamp(interpolated.g * 255.0f, 0.0f, 255.0f));
-          unsigned char b = static_cast<unsigned char>(std::clamp(interpolated.b * 255.0f, 0.0f, 255.0f));
+          // Clamp colors to [0, 1] and convert to [0, 255]
+          unsigned char r = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.r)) * 255);
+          unsigned char g = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.g)) * 255);
+          unsigned char b = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.b)) * 255);
+
           printf("Pixel: (%d, %d, %d)\n", r, g, b);
 
           image->setPixel(x, y, r, g, b);
