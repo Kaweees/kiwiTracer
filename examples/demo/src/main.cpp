@@ -75,22 +75,42 @@ void resize_obj(std::vector<tinyobj::shape_t>& shapes) {
 }
 
 // Color mode 1: Depth-based coloring (closer = brighter)
-void setDepthColors(std::vector<kiwitracer::Vertex>& vertices, float minZ, float maxZ) {
-  float denom = (maxZ - minZ <= 0.0f) ? 1.0f : (maxZ - minZ);
+void setDepthColors(kiwitracer::Vertex& vertex, float minZ, float maxZ, unsigned char& r, unsigned char& g,
+                    unsigned char& b) {
+  float denom = ((maxZ - minZ) <= 0.0f) ? 1.0f : (maxZ - minZ);
 
-  // Normalize z values and set colors (closer = brighter red)
-  for (auto& v : vertices) {
-    float zNormalized = (v.z - minZ) / denom;
-    float brightness = 1.0f - zNormalized; // invert so closer (smaller z) is brighter
-    v.r = brightness;
-    v.g = 0.0f;
-    v.b = 0.0f;
+  // Normalize z value and set color (closer = brighter red)
+  float zNormalized = (vertex.z - minZ) / denom;
+  float brightness = 1.0f - zNormalized; // invert so closer (smaller z) is brighter
+  vertex.r = brightness;
+  vertex.g = 0.0f;
+  vertex.b = 0.0f;
+  r = (unsigned char)(std::max(0.0f, std::min(1.0f, vertex.r)) * 255.0f);
+  g = (unsigned char)(std::max(0.0f, std::min(1.0f, vertex.g)) * 255.0f);
+  b = (unsigned char)(std::max(0.0f, std::min(1.0f, vertex.b)) * 255.0f);
+}
+
+// Color mode 2: Barycentric regions
+void setBarycentricColors(float u, float v, float w, unsigned char& r, unsigned char& g, unsigned char& b) {
+  float minw = std::min(u, std::min(v, w));
+  if (u >= 0.2f && v >= 0.2f && w >= 0.2f) {
+    r = 255;
+    g = 0;
+    b = 0; // red core
+  } else if (minw >= 0.05f && minw <= 0.2f) {
+    r = 0;
+    g = 0;
+    b = 255; // blue soft border
+  } else {
+    r = 0;
+    g = 255;
+    b = 0; // green elsewhere
   }
 }
 
 // Rasterize a single triangle
 void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitracer::Image> image,
-                       std::vector<std::vector<float>>& zBuffer, int colorMode) {
+                       std::vector<std::vector<float>>& zBuffer, int colorMode, float minZ, float maxZ) {
   // Calculate bounding box for this triangle
   triangle.computeBoundingBox(image->getWidth(), image->getHeight());
 
@@ -120,21 +140,12 @@ void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitrace
           zBuffer[y][x] = interpolated.depth;
 
           unsigned char r, g, b;
-          if (colorMode == 2) {
-            float minw = std::min(u, std::min(v, w));
-            if (u >= 0.2f && v >= 0.2f && w >= 0.2f) {
-              r = 255;
-              g = 0;
-              b = 0; // red core
-            } else if (minw >= 0.05f && minw <= 0.2f) {
-              r = 0;
-              g = 0;
-              b = 255; // blue soft border
-            } else {
-              r = 0;
-              g = 255;
-              b = 0; // green elsewhere
-            }
+          // Apply color mode
+          if (colorMode == 1) {
+            setDepthColors(interpolated, minZ, maxZ, r, g, b);
+          } else if (colorMode == 2) {
+            // Per-pixel barycentric region coloring; no per-vertex setup needed
+            setBarycentricColors(u, v, w, r, g, b);
           } else {
             // Clamp colors to [0, 1] and convert to [0, 255]
             r = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.r)) * 255);
@@ -222,13 +233,6 @@ int main(int argc, char** argv) {
     maxZ = std::max(maxZ, window.z);
   }
 
-  // Apply color mode
-  if (colorMode == 1) {
-    setDepthColors(vertices, minZ, maxZ);
-  } else if (colorMode == 3) {
-    // Per-pixel barycentric region coloring; no per-vertex setup needed
-  }
-
   // Rasterize each triangle
   for (size_t i = 0; i < triBuf.size(); i += 3) {
     // Get the three vertex indices for this triangle
@@ -237,7 +241,7 @@ int main(int argc, char** argv) {
     unsigned int idx2 = triBuf[i + 2];
 
     kiwitracer::Triangle tri(vertices[idx0], vertices[idx1], vertices[idx2]);
-    rasterizeTriangle(tri, image, zbuffer, colorMode);
+    rasterizeTriangle(tri, image, zbuffer, colorMode, minZ, maxZ);
   }
 
   // write out the image

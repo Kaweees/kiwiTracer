@@ -5,7 +5,5 @@
 #include "graphics/image.hpp"
 
 // Geometry
-// #include "geometry/face.hpp"
-// #include "geometry/mesh.hpp"
 #include "geometry/triangle.hpp"
 #include "geometry/vertex.hpp"
