@@ -76,7 +76,7 @@ void resize_obj(std::vector<tinyobj::shape_t>& shapes) {
 
 // Rasterize a single triangle
 void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitracer::Image> image,
-                       std::vector<std::vector<float>>& zBuffer) {
+                       std::vector<std::vector<float>>& zBuffer, int colorMode) {
   // Calculate bounding box for this triangle
   triangle.computeBoundingBox(image->getWidth(), image->getHeight());
 
@@ -105,13 +105,30 @@ void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitrace
           // Update the z-buffer
           zBuffer[y][x] = interpolated.depth;
 
-          // Clamp colors to [0, 1] and convert to [0, 255]
-          unsigned char r = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.r)) * 255);
-          unsigned char g = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.g)) * 255);
-          unsigned char b = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.b)) * 255);
+          unsigned char r, g, b;
+          if (colorMode == 2) {
+            float minw = std::min(u, std::min(v, w));
+            if (u >= 0.2f && v >= 0.2f && w >= 0.2f) {
+              r = 255;
+              g = 0;
+              b = 0; // red core
+            } else if (minw >= 0.05f && minw <= 0.2f) {
+              r = 0;
+              g = 0;
+              b = 255; // blue soft border
+            } else {
+              r = 0;
+              g = 255;
+              b = 0; // green elsewhere
+            }
+          } else {
+            // Clamp colors to [0, 1] and convert to [0, 255]
+            r = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.r)) * 255);
+            g = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.g)) * 255);
+            b = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.b)) * 255);
+          }
 
           printf("Pixel: (%d, %d, %d)\n", r, g, b);
-
           image->setPixel(x, y, r, g, b);
         }
       }
@@ -130,43 +147,15 @@ void setDepthColors(std::vector<kiwitracer::Vertex>& vertices) {
     maxZ = std::max(maxZ, v.z);
   }
 
-  // Normalize z values and set colors
+  float denom = (maxZ - minZ <= 0.0f) ? 1.0f : (maxZ - minZ);
+
+  // Normalize z values and set colors (closer = brighter red)
   for (auto& v : vertices) {
-    float normalizedZ = (v.z - minZ) / (maxZ - minZ);
-    v.r = normalizedZ; // Red component based on depth
+    float zNormalized = (v.z - minZ) / denom;
+    float brightness = 1.0f - zNormalized; // invert so closer (smaller z) is brighter
+    v.r = brightness;
     v.g = 0.0f;
     v.b = 0.0f;
-  }
-}
-
-// Color mode 2: Distance-based banded coloring
-void setDistanceColors(std::vector<kiwitracer::Vertex>& vertices, int width, int height) {
-  // Reference point in window space (center of image)
-  float refX = width / 2.0f;
-  float refY = height / 2.0f;
-
-  float minDist = 1e10f;
-  float maxDist = 0.0f;
-
-  // Find min and max distances
-  for (const auto& v : vertices) {
-    float dist = std::sqrt((v.x - refX) * (v.x - refX) + (v.y - refY) * (v.y - refY));
-    minDist = std::min(minDist, dist);
-    maxDist = std::max(maxDist, dist);
-  }
-
-  // Set banded colors based on distance
-  for (auto& v : vertices) {
-    float dist = std::sqrt((v.x - refX) * (v.x - refX) + (v.y - refY) * (v.y - refY));
-    float normalizedDist = (dist - minDist) / (maxDist - minDist);
-
-    // Create banded effect
-    float banded = std::floor(normalizedDist * 8.0f) / 8.0f;
-
-    // Blend between blue and yellow
-    v.r = static_cast<unsigned char>(banded);
-    v.g = static_cast<unsigned char>(banded);
-    v.b = static_cast<unsigned char>(1.0f - banded);
   }
 }
 
@@ -174,11 +163,12 @@ int main(int argc, char** argv) {
   fs::path meshfile, imagefile;
   int g_width = 100, g_height = 100, colorMode = 1;
 
-  auto cli = lyra::cli() | lyra::arg(meshfile, "meshfile").required().help("Mesh file (e.g., foo.obj)") |
-             lyra::arg(imagefile, "imagefile").required().help("Image file (e.g., foo.png)") |
-             lyra::arg(g_width, "width").help("Image width (e.g., 512)") |
-             lyra::arg(g_height, "height").help("Image height (e.g., 512)") |
-             lyra::arg(colorMode, "mode").help("Coloring mode: 1 (depth) or 2 (binned distance)");
+  auto cli =
+      lyra::cli() | lyra::arg(meshfile, "meshfile").required().help("Mesh file (e.g., foo.obj)") |
+      lyra::arg(imagefile, "imagefile").required().help("Image file (e.g., foo.png)") |
+      lyra::arg(g_width, "width").help("Image width (e.g., 512)") |
+      lyra::arg(g_height, "height").help("Image height (e.g., 512)") |
+      lyra::arg(colorMode, "mode").help("Coloring mode: 1 (depth) or 2 (binned distance) or 3 (barycentric regions)");
 
   auto result = cli.parse({argc, argv});
   if (!result) {
@@ -187,8 +177,8 @@ int main(int argc, char** argv) {
   }
 
   // Validate color mode
-  if (colorMode < 1 || colorMode > 2) {
-    std::cerr << "Color mode must be 1 or 2\n";
+  if (colorMode < 1 || colorMode > 3) {
+    std::cerr << "Color mode must be 1, 2 or 3\n";
     return 1;
   }
 
@@ -237,8 +227,8 @@ int main(int argc, char** argv) {
   // Apply color mode
   if (colorMode == 1) {
     setDepthColors(vertices);
-  } else if (colorMode == 2) {
-    setDistanceColors(vertices, g_width, g_height);
+  } else if (colorMode == 3) {
+    // Per-pixel barycentric region coloring; no per-vertex setup needed
   }
 
   // Rasterize each triangle
@@ -249,7 +239,7 @@ int main(int argc, char** argv) {
     unsigned int idx2 = triBuf[i + 2];
 
     kiwitracer::Triangle tri(vertices[idx0], vertices[idx1], vertices[idx2]);
-    rasterizeTriangle(tri, image, zbuffer);
+    rasterizeTriangle(tri, image, zbuffer, colorMode);
   }
 
   // write out the image
