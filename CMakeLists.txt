@@ -70,7 +70,7 @@ else()
   endif()
 endif()
 
-# Lyra
+# Tinyobjloader
 FetchContent_Declare(
   tinyobjloader
   GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git

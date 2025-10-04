@@ -4,9 +4,13 @@ file(GLOB_RECURSE PROJECT_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE PROJECT_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_executable(${EXECUTABLE_NAME} ${PROJECT_SRCS})
+
+# Add include directories
 target_include_directories(${EXECUTABLE_NAME} PUBLIC ${PROJECT_INCLUDES})
 target_include_directories(${EXECUTABLE_NAME}
                            PRIVATE ${tinyobjloader_SOURCE_DIR})
+
+# Link libraries
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE ${PROJECT_NAME} lyra
                                                  tinyobjloader)
 
