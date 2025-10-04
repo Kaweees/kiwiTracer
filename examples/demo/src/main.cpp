@@ -110,7 +110,7 @@ void setBarycentricColors(float u, float v, float w, unsigned char& r, unsigned 
 
 // Rasterize a single triangle
 void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitracer::Image> image,
-                       std::vector<std::vector<float>>& zBuffer, int colorMode, float minZ, float maxZ) {
+                       std::vector<std::vector<float>>& zBuffer, int colorMode, float minZ, float maxZ, bool debug) {
   // Calculate bounding box for this triangle
   triangle.computeBoundingBox(image->getWidth(), image->getHeight());
 
@@ -128,11 +128,13 @@ void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitrace
 
       // Check if point is inside triangle
       if (triangle.barycentric(kiwitracer::Vertex(x + 0.5f, y + 0.5f, 0), u, v, w)) {
-        printf("Barycentric coordinates: (%f, %f, %f)\n", u, v, w);
+        if (debug) { printf("Barycentric coordinates: (%f, %f, %f)\n", u, v, w); }
         // Interpolate vertex attributes
         kiwitracer::Vertex interpolated = triangle.interpolateVertex(triangle.v0, triangle.v1, triangle.v2, u, v, w);
-        printf("Interpolated vertex: (%f, %f, %f, %f, %f, %f, %f)\n", interpolated.x, interpolated.y, interpolated.z,
-               interpolated.r, interpolated.g, interpolated.b, interpolated.depth);
+        if (debug) {
+          printf("Interpolated vertex: (%f, %f, %f, %f, %f, %f, %f)\n", interpolated.x, interpolated.y, interpolated.z,
+                 interpolated.r, interpolated.g, interpolated.b, interpolated.depth);
+        }
 
         // Z-buffer test: only draw if this pixel is closer than what's in the buffer
         if (interpolated.depth < zBuffer[y][x]) {
@@ -153,7 +155,7 @@ void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitrace
             b = (unsigned char)(std::max(0.0f, std::min(1.0f, interpolated.b)) * 255);
           }
 
-          printf("Pixel: (%d, %d, %d)\n", r, g, b);
+          if (debug) { printf("Pixel: (%d, %d, %d)\n", r, g, b); }
           image->setPixel(x, y, r, g, b);
         }
       }
@@ -164,13 +166,15 @@ void rasterizeTriangle(kiwitracer::Triangle& triangle, std::shared_ptr<kiwitrace
 int main(int argc, char** argv) {
   fs::path meshfile, imagefile;
   int g_width = 100, g_height = 100, colorMode = 1;
+  bool debug = false;
 
   auto cli =
       lyra::cli() | lyra::arg(meshfile, "meshfile").required().help("Mesh file (e.g., foo.obj)") |
       lyra::arg(imagefile, "imagefile").required().help("Image file (e.g., foo.png)") |
       lyra::arg(g_width, "width").help("Image width (e.g., 512)") |
       lyra::arg(g_height, "height").help("Image height (e.g., 512)") |
-      lyra::arg(colorMode, "mode").help("Coloring mode: 1 (depth) or 2 (binned distance) or 3 (barycentric regions)");
+      lyra::arg(colorMode, "mode").help("Coloring mode: 1 (depth) or 2 (binned distance) or 3 (barycentric regions)") |
+      lyra::arg(debug, "debug").help("Debug mode");
 
   auto result = cli.parse({argc, argv});
   if (!result) {
@@ -241,7 +245,7 @@ int main(int argc, char** argv) {
     unsigned int idx2 = triBuf[i + 2];
 
     kiwitracer::Triangle tri(vertices[idx0], vertices[idx1], vertices[idx2]);
-    rasterizeTriangle(tri, image, zbuffer, colorMode, minZ, maxZ);
+    rasterizeTriangle(tri, image, zbuffer, colorMode, minZ, maxZ, debug);
   }
 
   // write out the image
