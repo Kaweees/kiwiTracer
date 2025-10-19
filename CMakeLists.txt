@@ -75,7 +75,8 @@ FetchContent_Declare(
   tinyobjloader
   GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
   GIT_TAG "v0.9.25"
-  GIT_PROGRESS TRUE)
+  GIT_PROGRESS TRUE
+  GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(tinyobjloader)
 
 # STB (Single-file public domain libraries)
@@ -83,11 +84,12 @@ FetchContent_Declare(
   stb
   GIT_REPOSITORY https://github.com/nothings/stb.git
   GIT_TAG "master"
-  GIT_PROGRESS TRUE)
+  GIT_PROGRESS TRUE
+  GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(stb)
 
-# Add STB include directory to the library
-target_include_directories(${PROJECT_NAME} INTERFACE ${stb_SOURCE_DIR})
+# Add include directories
+target_include_directories(${PROJECT_NAME} INTERFACE ${tinyobjloader_SOURCE_DIR} ${stb_SOURCE_DIR})
 
 # Optional builds
 option(BUILD_EXAMPLES "Build examples" ON)
