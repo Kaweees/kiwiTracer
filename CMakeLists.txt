@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR) # Set the minimum required
+cmake_minimum_required(VERSION 3.30 FATAL_ERROR) # Set the minimum required
                                                  # version of CMake
 
 project(
